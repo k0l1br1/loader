@@ -17,8 +17,8 @@ const usage = `usage: loader -s <symbol> [options]
 var (
 	errReqSymbol    = errors.New("symbol is required")
 	errReqStartTime = errors.New("start-time is required for a new instance")
-	// Непонятно что хотел пользователь, либо начать новую загрузку
-	// либо продолжить сохраненную
+	// it is not clear what the user wanted, or start a new download
+	// or continue saved
 	errTimeWithoutNew = errors.New("start-time is required only for a new instance")
 )
 
@@ -70,8 +70,8 @@ func parseOptions(args []string) (*options, error) {
 			opts.IsNew = true
 		case "-s", "--symbol":
 			j := i + 1
-			// при валидации будет проверка на пустую строку
-			// поэтому здесь достаточно записать если присутсвует
+			// during validation there will be a check for an empty string
+			// it is not necessary to check it here
 			if len(args) > j && !strings.HasPrefix(args[j], "-") {
 				opts.Symbol = strings.ToUpper(args[j])
 				i++

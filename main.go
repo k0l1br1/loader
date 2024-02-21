@@ -17,7 +17,7 @@ const (
 	exitInterrupt = 130
 )
 
-// максимальный лимит 1000 для загрузки
+// max limit load candles 1000
 type Candles [1000]candles.Candle
 
 func errorPrint(err error) {
@@ -30,7 +30,7 @@ func errorWrap(msg string, err error) error {
 
 func hostClient(host string) *fasthttp.HostClient {
 	isTLS := true
-	// Все равно один хост, поэтому можно не использовать fasthttp.Client
+	// single HostClient will be enough, so no need to use fasthttp.Client
 	return &fasthttp.HostClient{
 		Addr: fasthttp.AddMissingPort(host, isTLS),
 		// increase DNS cache time to an hour instead of default minute
@@ -119,8 +119,8 @@ func run() int {
 			return exitError
 		}
 
-		// convert sec to milli
-		t = int64(cs[n-1].CTime) * 1000
+		// conver the time of the last candle seconds to milli
+		t = candles.SecToMilli(cs[n-1].CTime)
 		totalLoaded += n
 		fmt.Printf("\b\rloaded  %d", totalLoaded)
 

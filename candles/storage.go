@@ -14,7 +14,7 @@ const (
 	DefaultDirPerm  = 0744
 	DefaultDataDir  = "candles"
 	DefaultExt      = ".bin"
-	CandleByteSize  = 5 * 4 // 4 byte for any field
+	CandleByteSize  = 5 * 4 // 4 bytes for any field
 	flagNew         = os.O_RDWR | os.O_CREATE | os.O_TRUNC
 	flagAppend      = os.O_RDWR | os.O_APPEND
 )
@@ -87,6 +87,7 @@ func (s *Storage) Close() error {
 	return s.fd.Close()
 }
 
+// Convert candles to bytes and write them to a file to the data file
 func (s *Storage) Save(b []Candle) error {
 	if len(b) == 0 {
 		return nil
@@ -98,7 +99,7 @@ func (s *Storage) Save(b []Candle) error {
 		binary.LittleEndian.PutUint32(bs[8:12], math.Float32bits(b[i].CPrice))
 		binary.LittleEndian.PutUint32(bs[12:16], math.Float32bits(b[i].Volume))
 		binary.LittleEndian.PutUint32(bs[16:20], b[i].CTime)
-		// save one candle
+		// write one candle
 		if _, err := s.fd.Write(bs); err != nil {
 			return err
 		}
@@ -107,6 +108,7 @@ func (s *Storage) Save(b []Candle) error {
 	return nil
 }
 
+// Returns length in bytes for the current data file
 func (s *Storage) SizeBytes() (int64, error) {
 	fi, err := s.fd.Stat()
 	if err != nil {
@@ -115,6 +117,7 @@ func (s *Storage) SizeBytes() (int64, error) {
 	return fi.Size(), nil
 }
 
+// Returns length in candles for the current data file
 func (s *Storage) Size() (int64, error) {
 	size, err := s.SizeBytes()
 	if err != nil {
@@ -126,6 +129,8 @@ func (s *Storage) Size() (int64, error) {
 	return int64(size / CandleByteSize), nil
 }
 
+// Read bytes from the current data file and convert them to candles
+// Returns the number of candle read and the error
 func (s *Storage) Read(cs []Candle) (int, error) {
 	nb := len(cs) * CandleByteSize
 	// nil slice also has cap 0
@@ -155,7 +160,8 @@ func (s *Storage) Read(cs []Candle) (int, error) {
 		cs[i].Volume = math.Float32frombits(binary.LittleEndian.Uint32(bs[12+off : 16+off]))
 		cs[i].CTime = binary.LittleEndian.Uint32(bs[16+off : 20+off])
 	}
-    // err may be io.EOF
+
+	// err may be io.EOF
 	return n, err
 }
 
@@ -165,7 +171,7 @@ func (s *Storage) LastCandleCloseTime() (int64, error) {
 	if size < CandleByteSize || err != nil {
 		return 0, err
 	}
-	at := size - 4 // 4 byte for int32
+	at := size - 4 // 4 bytes for int32
 
 	b := make([]byte, 4)
 	n, err := s.fd.ReadAt(b, at)
@@ -176,10 +182,10 @@ func (s *Storage) LastCandleCloseTime() (int64, error) {
 		panic("BUG: length must be equal to the number of bytes read")
 	}
 	t := binary.LittleEndian.Uint32(b)
-	// convert sec to milli
 	return SecToMilli(t), nil
 }
 
+// convert seconds to milliseconds
 func SecToMilli(t uint32) int64 {
 	return int64(t) * 1000
 }
