@@ -10,8 +10,10 @@ import (
 const usage = `usage: loader -s <symbol> [options]
     -s, --symbol        The pair for which need to load the prices data
     -n, --is-new        The flag to init new instance for a symbol    
-    -t, --start-time    Date UTC from which to start downloading
+    -t, --start-time    Date (UTC) from which to start downloading
                         (format like 2024-02-19 03:37:05)
+    --show-start        Show the close date (UTC) of the first candle
+    --show-end          Show the close date (UTC) of the last candle
 `
 
 var (
@@ -29,6 +31,8 @@ func help() {
 
 type options struct {
 	IsNew          bool
+	ShowStart      bool
+	ShowEnd        bool
 	Symbol         string
 	StartTimestamp int64
 }
@@ -86,6 +90,10 @@ func parseOptions(args []string) (*options, error) {
 				opts.StartTimestamp = t
 				i++
 			}
+		case "--show-start":
+			opts.ShowStart = true
+		case "--show-end":
+			opts.ShowEnd = true
 		}
 	}
 

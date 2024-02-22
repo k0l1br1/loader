@@ -20,6 +20,15 @@ const (
 // max limit load candles 1000
 type Candles [1000]candles.Candle
 
+func datePrint(t int64) {
+	dt := time.UnixMilli(t)
+	if t == 0 {
+		os.Stdout.WriteString("no date\n")
+		return
+	}
+	os.Stdout.WriteString(dt.UTC().Format("2006-01-02 15:04:05") + "\n")
+}
+
 func errorPrint(err error) {
 	os.Stderr.WriteString(err.Error() + "\n")
 }
@@ -57,23 +66,7 @@ func run() int {
 		}
 	}
 
-	q := query{}
-	q.Init(opts.Symbol)
-
-	uri := &fasthttp.URI{}
-	uri.Parse(nil, []byte(apiUriBase))
-
-	req := &fasthttp.Request{}
-	resp := &fasthttp.Response{}
-
-	hc := hostClient(string(uri.Host()))
-	defer hc.CloseIdleConnections()
-
-	t := opts.StartTimestamp
-	var cs Candles
-
 	var stg *candles.Storage
-
 	if opts.IsNew {
 		stg, err = candles.NewDefaultStorage(opts.Symbol)
 		if err != nil {
@@ -89,6 +82,26 @@ func run() int {
 	}
 	defer stg.Close()
 
+	if opts.ShowStart {
+		t, err := stg.FirstCandleCloseTime()
+		if err != nil {
+			errorPrint(errorWrap("read storage first close time", err))
+			return exitError
+		}
+		datePrint(t)
+		return exitOk
+	}
+	if opts.ShowEnd {
+		t, err := stg.LastCandleCloseTime()
+		if err != nil {
+			errorPrint(errorWrap("read storage last close time", err))
+			return exitError
+		}
+		datePrint(t)
+		return exitOk
+	}
+
+	t := opts.StartTimestamp
 	if !opts.IsNew {
 		t, err = stg.LastCandleCloseTime()
 		if err != nil {
@@ -103,9 +116,19 @@ func run() int {
 		return exitError
 	}
 
+	q := query{}
+	q.Init(opts.Symbol)
+	uri := &fasthttp.URI{}
+	uri.Parse(nil, []byte(apiUriBase))
+	req := &fasthttp.Request{}
+	resp := &fasthttp.Response{}
+	hc := hostClient(string(uri.Host()))
+	defer hc.CloseIdleConnections()
+
 	intChan := make(chan os.Signal, 1)
 	signal.Notify(intChan, os.Interrupt, syscall.SIGTERM)
 
+	var cs Candles
 	for {
 		uri.SetQueryStringBytes(q.QueryStringBytes(t))
 		// make an inner copy of parsed uri
