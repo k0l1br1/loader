@@ -52,12 +52,23 @@ func TestStorageAppend(t *testing.T) {
 	}
 
 	// test save and get data immediately
-	cTime, err := stg.LastCandleCloseTime()
+	cTime, err := stg.FirstCandleCloseTime()
+	if err != nil {
+		t.Errorf("get first candle close time: %s", err.Error())
+	}
+
+	wantCTime := SecToMilli(a.CTime)
+	if cTime != wantCTime {
+		t.Errorf("first candle close time: want %d, got %d", wantCTime, cTime)
+	}
+
+	// test save and get data immediately
+	cTime, err = stg.LastCandleCloseTime()
 	if err != nil {
 		t.Errorf("get appended candle close time: %s", err.Error())
 	}
 
-	wantCTime := SecToMilli(c.CTime)
+	wantCTime = SecToMilli(c.CTime)
 	if cTime != wantCTime {
 		t.Errorf("appended candle close time: want %d, got %d", wantCTime, cTime)
 	}

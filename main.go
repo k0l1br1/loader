@@ -97,10 +97,15 @@ func run() int {
 		}
 	}
 
+	totalCandles, err := stg.SizeCandles()
+	if err != nil {
+		errorPrint(errorWrap("get total candles", err))
+		return exitError
+	}
+
 	intChan := make(chan os.Signal, 1)
 	signal.Notify(intChan, os.Interrupt, syscall.SIGTERM)
 
-	totalLoaded := 0
 	for {
 		uri.SetQueryStringBytes(q.QueryStringBytes(t))
 		// make an inner copy of parsed uri
@@ -121,8 +126,8 @@ func run() int {
 
 		// conver the time of the last candle seconds to milli
 		t = candles.SecToMilli(cs[n-1].CTime)
-		totalLoaded += n
-		fmt.Printf("\b\rloaded  %d", totalLoaded)
+		totalCandles += int64(n)
+		fmt.Printf("\b\rloaded  %d", totalCandles)
 
 		if len(cs) > n {
 			// all done

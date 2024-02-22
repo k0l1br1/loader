@@ -118,7 +118,7 @@ func (s *Storage) SizeBytes() (int64, error) {
 }
 
 // Returns length in candles for the current data file
-func (s *Storage) Size() (int64, error) {
+func (s *Storage) SizeCandles() (int64, error) {
 	size, err := s.SizeBytes()
 	if err != nil {
 		return 0, err
@@ -165,14 +165,26 @@ func (s *Storage) Read(cs []Candle) (int, error) {
 	return n, err
 }
 
+// return timestamp as milli seconds of the first candle
+func (s *Storage) FirstCandleCloseTime() (int64, error) {
+	size, err := s.SizeBytes()
+	if size < CandleByteSize || err != nil {
+		return 0, err
+	}
+	return s.readCandleCloseTime(int64(CandleByteSize))
+}
+
 // return timestamp as milli seconds of the last candle
 func (s *Storage) LastCandleCloseTime() (int64, error) {
 	size, err := s.SizeBytes()
 	if size < CandleByteSize || err != nil {
 		return 0, err
 	}
-	at := size - 4 // 4 bytes for int32
+	return s.readCandleCloseTime(size)
+}
 
+func (s *Storage) readCandleCloseTime(offset int64) (int64, error) {
+	at := offset - 4 // 4 bytes for int32
 	b := make([]byte, 4)
 	n, err := s.fd.ReadAt(b, at)
 	if err != nil && err != io.EOF {
