@@ -150,16 +150,16 @@ func run() int {
 		// conver the time of the last candle seconds to milli
 		t = candles.SecToMilli(cs[n-1].CTime)
 		totalCandles += int64(n)
-		fmt.Printf("\b\rloaded  %d", totalCandles)
+		fmt.Printf("\b\rloaded  %d\n", totalCandles)
 
 		if len(cs) > n {
 			// all done
-			fmt.Println(". All done!")
+			fmt.Println("All done!")
 			return exitOk
 		}
 		select {
 		case <-intChan:
-			fmt.Println(". Interrupted!")
+			fmt.Println("Interrupted!")
 			return exitInterrupt
 		default:
 			// meaning that the selects never block

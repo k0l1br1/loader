@@ -1,4 +1,4 @@
-module loader
+module github.com/k0l1br1/loader
 
 go 1.21.6
 
