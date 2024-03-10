@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/valyala/fasthttp"
-	"loader/candles"
+	"github.com/k0l1br1/loader/candles"
 )
 
 const (
