@@ -129,9 +129,50 @@ func (s *Storage) SizeCandles() (int64, error) {
 	return int64(size / CandleByteSize), nil
 }
 
+func (s *Storage) ReadAll() ([]Candle, error) {
+	size, err := s.SizeBytes()
+	if err != nil {
+		return nil, err
+	}
+	bs := make([]byte, size)
+	n, err := s.fd.Read(bs)
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+	if n%CandleByteSize != 0 {
+		return nil, errors.New("read all from a corrupted candles file")
+	}
+
+	// cast n to candles len
+	n = int(n / CandleByteSize)
+	cs := make([]Candle, n)
+	// bytes to candles
+	bs2cs(bs, cs, n)
+
+	return cs, nil
+}
+
+// Read bytes from the end of the current data file and convert them to candles
+// Returns the number of candle read and the error
+func (s *Storage) ReadBack(cs []Candle) (int, error) {
+	size, err := s.SizeBytes()
+	if err != nil {
+		return 0, err
+	}
+	pos := size - int64(len(cs)*CandleByteSize) - s.readPos
+	if pos < 0 {
+		pos = 0
+	}
+	return s.read(cs, pos)
+}
+
 // Read bytes from the current data file and convert them to candles
 // Returns the number of candle read and the error
 func (s *Storage) Read(cs []Candle) (int, error) {
+	return s.read(cs, s.readPos)
+}
+
+func (s *Storage) read(cs []Candle, pos int64) (int, error) {
 	nb := len(cs) * CandleByteSize
 	// nil slice also has cap 0
 	if nb > cap(s.readBuf) {
@@ -140,7 +181,7 @@ func (s *Storage) Read(cs []Candle) (int, error) {
 
 	// cut or stretch after previous use
 	bs := s.readBuf[:nb]
-	n, err := s.fd.ReadAt(bs, s.readPos)
+	n, err := s.fd.ReadAt(bs, pos)
 	if err != nil && err != io.EOF {
 		return 0, err
 	}
@@ -151,15 +192,8 @@ func (s *Storage) Read(cs []Candle) (int, error) {
 
 	// cast n to candles len
 	n = int(n / CandleByteSize)
-	var off int
-	for i := 0; i < n; i++ {
-		off = i * CandleByteSize
-		cs[i].HPrice = math.Float32frombits(binary.LittleEndian.Uint32(bs[off : 4+off]))
-		cs[i].LPrice = math.Float32frombits(binary.LittleEndian.Uint32(bs[4+off : 8+off]))
-		cs[i].CPrice = math.Float32frombits(binary.LittleEndian.Uint32(bs[8+off : 12+off]))
-		cs[i].Volume = math.Float32frombits(binary.LittleEndian.Uint32(bs[12+off : 16+off]))
-		cs[i].CTime = binary.LittleEndian.Uint32(bs[16+off : 20+off])
-	}
+	// bytes to candles
+	bs2cs(bs, cs, n)
 
 	// err may be io.EOF
 	return n, err
@@ -200,4 +234,16 @@ func (s *Storage) readCandleCloseTime(offset int64) (int64, error) {
 // convert seconds to milliseconds
 func SecToMilli(t uint32) int64 {
 	return int64(t) * 1000
+}
+
+func bs2cs(bs []byte, cs []Candle, n int) {
+	var off int
+	for i := 0; i < n; i++ {
+		off = i * CandleByteSize
+		cs[i].HPrice = math.Float32frombits(binary.LittleEndian.Uint32(bs[off : 4+off]))
+		cs[i].LPrice = math.Float32frombits(binary.LittleEndian.Uint32(bs[4+off : 8+off]))
+		cs[i].CPrice = math.Float32frombits(binary.LittleEndian.Uint32(bs[8+off : 12+off]))
+		cs[i].Volume = math.Float32frombits(binary.LittleEndian.Uint32(bs[12+off : 16+off]))
+		cs[i].CTime = binary.LittleEndian.Uint32(bs[16+off : 20+off])
+	}
 }

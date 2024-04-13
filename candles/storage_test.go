@@ -74,7 +74,7 @@ func TestStorageAppend(t *testing.T) {
 	}
 }
 
-func TestStorageLoad(t *testing.T) {
+func TestStorageRead(t *testing.T) {
 	stg, err := FileStorage(testFile)
 	if err != nil {
 		t.Errorf("open existing storage: %s", err.Error())
@@ -105,5 +105,62 @@ func TestStorageLoad(t *testing.T) {
 	}
 	if c != cs[0] {
 		t.Errorf("candles not equal: want %#v, got %#v", c, cs[0])
+	}
+}
+
+func TestStorageReadBack(t *testing.T) {
+	stg, err := FileStorage(testFile)
+	if err != nil {
+		t.Errorf("open existing storage: %s", err.Error())
+	}
+	defer stg.Close()
+
+	cs := make([]Candle, 2)
+	n, err := stg.ReadBack(cs)
+	if err != nil && err != io.EOF {
+		t.Errorf("read back candles file: %s", err.Error())
+	}
+	if n != len(cs) {
+		t.Errorf("reading back candles n: want %d, got %d", len(cs), n)
+	}
+	if b != cs[0] {
+		t.Errorf("candles not equal: want %#v, got %#v", b, cs[0])
+	}
+	if c != cs[1] {
+		t.Errorf("candles not equal: want %#v, got %#v", c, cs[1])
+	}
+
+	n, err = stg.ReadBack(cs)
+	if err != nil && err != io.EOF {
+		t.Errorf("second read candles file: %s", err.Error())
+	}
+	if n != len(cs) && err != io.EOF {
+		t.Errorf("second reading candles n: want %d, got %d", len(cs), n)
+	}
+	if a != cs[0] {
+		t.Errorf("candles not equal: want %#v, got %#v", a, cs[0])
+	}
+}
+
+func TestStorageReadAll(t *testing.T) {
+	stg, err := FileStorage(testFile)
+	if err != nil {
+		t.Errorf("open existing storage: %s", err.Error())
+	}
+	defer stg.Close()
+
+	cs, err := stg.ReadAll()
+	if err != nil {
+		t.Errorf("read all candles file: %s", err.Error())
+	}
+    wantLen := 3
+	if len(cs) != wantLen {
+		t.Errorf("reading candles: want len %d, got %d", wantLen, len(cs))
+	}
+	if a != cs[0] {
+		t.Errorf("candles not equal: want %#v, got %#v", a, cs[0])
+	}
+	if c != cs[2] {
+		t.Errorf("candles not equal: want %#v, got %#v", c, cs[2])
 	}
 }
