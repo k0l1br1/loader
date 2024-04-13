@@ -134,21 +134,36 @@ func (s *Storage) ReadAll() ([]Candle, error) {
 	if err != nil {
 		return nil, err
 	}
-	bs := make([]byte, size)
-	n, err := s.fd.Read(bs)
+	size++ // one byte for final read at EOF
+	bs := make([]byte, 0, size)
+	var n int64
+	for {
+		nr, err := s.fd.Read(bs[len(bs):cap(bs)])
+		n += int64(nr)
+		bs = bs[:len(bs)+nr]
+		if err != nil {
+			if err == io.EOF {
+				err = nil
+			}
+			break
+		}
+		if len(bs) >= cap(bs) {
+			d := append(bs[:cap(bs)], 0)
+			bs = d[:len(bs)]
+		}
+	}
+
 	if err != nil && err != io.EOF {
 		return nil, err
 	}
 	if n%CandleByteSize != 0 {
 		return nil, errors.New("read all from a corrupted candles file")
 	}
-
 	// cast n to candles len
-	n = int(n / CandleByteSize)
+	n = n / CandleByteSize
 	cs := make([]Candle, n)
 	// bytes to candles
-	bs2cs(bs, cs, n)
-
+	bs2cs(bs, cs, len(cs))
 	return cs, nil
 }
 
