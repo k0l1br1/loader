@@ -1,13 +1,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/valyala/fasthttp"
 	"github.com/k0l1br1/loader/candles"
 )
 
@@ -16,9 +16,6 @@ const (
 	exitError     = 1
 	exitInterrupt = 130
 )
-
-// max limit load candles 1000
-type Candles [1000]candles.Candle
 
 func datePrint(t int64) {
 	dt := time.UnixMilli(t)
@@ -35,23 +32,6 @@ func errorPrint(err error) {
 
 func errorWrap(msg string, err error) error {
 	return fmt.Errorf("%s: %w", msg, err)
-}
-
-func hostClient(host string) *fasthttp.HostClient {
-	isTLS := true
-	// single HostClient will be enough, so no need to use fasthttp.Client
-	return &fasthttp.HostClient{
-		Addr: fasthttp.AddMissingPort(host, isTLS),
-		// increase DNS cache time to an hour instead of default minute
-		Dial: (&fasthttp.TCPDialer{
-			DNSCacheDuration: time.Hour,
-		}).Dial,
-		DisableHeaderNamesNormalizing: true,
-		DisablePathNormalizing:        true,
-		IsTLS:                         isTLS,
-		MaxIdleConnDuration:           time.Second * 10,
-		NoDefaultUserAgentHeader:      true,
-	}
 }
 
 func run() int {
@@ -110,61 +90,33 @@ func run() int {
 		}
 	}
 
-	totalCandles, err := stg.SizeCandles()
+	totalCandles1, err := stg.SizeCandles()
 	if err != nil {
 		errorPrint(errorWrap("get total candles", err))
 		return exitError
 	}
 
-	q := query{}
-	q.Init(opts.Symbol)
-	uri := &fasthttp.URI{}
-	uri.Parse(nil, []byte(apiUriBase))
-	req := &fasthttp.Request{}
-	resp := &fasthttp.Response{}
-	hc := hostClient(string(uri.Host()))
-	defer hc.CloseIdleConnections()
-
 	intChan := make(chan os.Signal, 1)
 	signal.Notify(intChan, os.Interrupt, syscall.SIGTERM)
 
-	var cs Candles
-	for {
-		uri.SetQueryStringBytes(q.QueryStringBytes(t))
-		// make an inner copy of parsed uri
-		req.SetURI(uri)
-		if err = hc.Do(req, resp); err != nil {
-			errorPrint(errorWrap("api do request", err))
-			return exitError
-		}
-		n, err := parseCandles(resp.Body(), &cs)
-		if err != nil {
-			errorPrint(errorWrap("parse candles", err))
-			return exitError
-		}
-		if err = stg.Save(cs[:n]); err != nil {
-			errorPrint(errorWrap("save candles", err))
-			return exitError
-		}
-
-		// conver the time of the last candle seconds to milli
-		t = candles.SecToMilli(cs[n-1].CTime)
-		totalCandles += int64(n)
-		fmt.Printf("\b\rloaded  %d\n", totalCandles)
-
-		if len(cs) > n {
-			// all done
-			fmt.Println("All done!")
-			return exitOk
-		}
-		select {
-		case <-intChan:
+	err = candles.Load(t, stg, intChan, opts.Symbol)
+	if err != nil {
+		if errors.Is(err, candles.ErrInterrupted) {
 			fmt.Println("Interrupted!")
 			return exitInterrupt
-		default:
-			// meaning that the selects never block
 		}
+		errorPrint(err)
+		return exitError
 	}
+
+	totalCandles2, err := stg.SizeCandles()
+	if err != nil {
+		errorPrint(errorWrap("get total candles", err))
+		return exitError
+	}
+
+	fmt.Printf("All done! Loaded %d candles, total candles %d\n", totalCandles2-totalCandles1, totalCandles2)
+	return exitOk
 }
 
 func main() {

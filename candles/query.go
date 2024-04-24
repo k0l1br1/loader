@@ -1,4 +1,4 @@
-package main
+package candles
 
 import (
 	"strconv"
@@ -9,12 +9,12 @@ const (
 	apiQueryString = "&interval=1s&limit=1000&startTime=" // 1677369601000
 )
 
-type query struct {
+type Query struct {
 	baseLen int
 	buf     []byte
 }
 
-func (q *query) Init(symbol string) {
+func (q *Query) Init(symbol string) {
 	q.buf = make([]byte, 0, len(apiQueryString)*2)
 	q.buf = append(q.buf, "symbol="...)
 	// symbol already is upper case
@@ -23,7 +23,7 @@ func (q *query) Init(symbol string) {
 	q.baseLen = len(q.buf)
 }
 
-func (q *query) QueryStringBytes(startTime int64) []byte {
+func (q *Query) QueryStringBytes(startTime int64) []byte {
 	t := strconv.FormatInt(startTime, 10)
 	q.buf = append(q.buf[:q.baseLen], t...)
 	return q.buf
